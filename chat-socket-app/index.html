@@ -1,0 +1,266 @@
+<!DOCTYPE html>
+<html lang="vi">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>AI Chat Multi-User</title>
+    <style>
+        body { font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif; margin: 0; display: flex; height: 100vh; background-color: #f0f2f5; }
+
+        /* Auth Overlay */
+        #auth-overlay {
+            position: fixed; top: 0; left: 0; width: 100%; height: 100%;
+            background: rgba(0,0,0,0.8); display: flex; justify-content: center; align-items: center; z-index: 1000;
+            transition: opacity 0.3s ease;
+        }
+        .auth-box {
+            background: white; padding: 2rem; border-radius: 10px; box-shadow: 0 4px 15px rgba(0,0,0,0.2); width: 300px; text-align: center;
+        }
+        .auth-box input { width: 100%; padding: 10px; margin: 10px 0; border: 1px solid #ddd; border-radius: 5px; box-sizing: border-box; }
+        .auth-box button { width: 100%; padding: 10px; background: #007bff; color: white; border: none; border-radius: 5px; cursor: pointer; margin-bottom: 10px; }
+        .auth-box a { color: #007bff; text-decoration: none; font-size: 0.9rem; cursor: pointer; }
+
+        /* Main Layout */
+        #sidebar {
+            width: 260px; background: #2c3e50; color: white; display: flex; flex-direction: column;
+        }
+        #main-chat {
+            flex-grow: 1; display: flex; flex-direction: column; position: relative;
+        }
+
+        /* Sidebar Elements */
+        .sidebar-header { padding: 1rem; background: #1a252f; font-weight: bold; text-align: center; }
+        .search-container { padding: 1rem; }
+        .search-container input {
+            width: 100%; padding: 8px; border-radius: 5px; border: none; box-sizing: border-box;
+        }
+        #user-list {
+            list-style: none; padding: 0; margin: 0; overflow-y: auto; flex-grow: 1;
+        }
+        #user-list li {
+            padding: 10px 1rem; border-bottom: 1px solid #34495e; cursor: pointer; transition: background 0.2s;
+        }
+        #user-list li:hover { background: #3e5871; }
+
+        /* Chat Header */
+        #chat-header {
+            background: white; padding: 15px; border-bottom: 1px solid #ddd;
+            display: flex; justify-content: space-between; align-items: center;
+            font-weight: bold; color: #333;
+        }
+        .exit-chat-btn {
+            background: #f44336; color: white; border: none; padding: 5px 10px;
+            border-radius: 5px; cursor: pointer; font-size: 0.8rem;
+        }
+
+        /* Chat Area */
+        #messages {
+            flex-grow: 1; padding: 1rem; overflow-y: auto; list-style: none; margin: 0;
+            display: flex; flex-direction: column; gap: 10px;
+        }
+        .msg-bubble {
+            max-width: 70%; padding: 10px 15px; border-radius: 15px; position: relative;
+            word-wrap: break-word; line-height: 1.4;
+        }
+        .msg-bubble .user-name { font-weight: bold; font-size: 0.85rem; margin-bottom: 4px; display: block; }
+        .msg-bubble .timestamp { font-size: 0.7rem; color: #888; float: right; margin-left: 10px; margin-top: 5px; }
+
+        /* Role Styles */
+        .role-user { background: white; align-self: flex-start; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .role-admin { background: #e3f2fd; align-self: flex-start; border-left: 4px solid #1976d2; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+        .role-ai { background: #fce4ec; align-self: flex-end; border-right: 4px solid #d81b60; box-shadow: 0 1px 2px rgba(0,0,0,0.1); text-align: right; }
+        .role-me { background: #dcf8c6; align-self: flex-end; box-shadow: 0 1px 2px rgba(0,0,0,0.1); }
+
+        /* Form Area */
+        #form {
+            background: white; padding: 1rem; display: flex; gap: 10px;
+            border-top: 1px solid #ddd; box-sizing: border-box;
+        }
+        #input {
+            flex-grow: 1; padding: 10px; border: 1px solid #ddd; border-radius: 20px; outline: none;
+        }
+        #form button {
+            background: #007bff; color: white; border: none; padding: 0 20px; border-radius: 20px; cursor: pointer;
+        }
+    </style>
+</head>
+<body>
+
+    <!-- Auth Overlay -->
+    <div id="auth-overlay">
+        <div class="auth-box" id="login-box">
+            <h3 style="margin-top:0">Đăng nhập</h3>
+            <input type="text" id="login-user" placeholder="Tên đăng nhập">
+            <input type="password" id="login-pass" placeholder="Mật khẩu">
+            <button onclick="doLogin()">Đăng nhập</button>
+            <a onclick="toggleAuth('signup')" style="cursor:pointer">Chưa có tài khoản? Đăng ký ngay</a>
+        </div>
+        <div class="auth-box" id="signup-box" style="display:none;">
+            <h3 style="margin-top:0">Đăng ký</h3>
+            <input type="text" id="sign-user" placeholder="Tên đăng nhập">
+            <input type="password" id="sign-pass" placeholder="Mật khẩu">
+            <button onclick="doSignup()">Đăng ký</button>
+            <a onclick="toggleAuth('login')" style="cursor:pointer">Đã có tài khoản? Đăng nhập</a>
+        </div>
+    </div>
+
+    <!-- Sidebar -->
+    <div id="sidebar">
+        <div class="sidebar-header">AI Chat Multi-User</div>
+        <div class="search-container">
+            <input type="text" id="search-input" placeholder="Tìm kiếm user..." oninput="searchUsers()">
+        </div>
+        <ul id="user-list"></ul>
+    </div>
+
+    <!-- Main Chat -->
+    <div id="main-chat">
+        <div id="chat-header">
+            <span id="chat-title">Chat Tổng</span>
+            <button id="exit-chat-btn" class="exit-chat-btn" style="display:none" onclick="exitPrivateChat()">Thoát Chat Riêng</button>
+        </div>
+        <ul id="messages"></ul>
+        <form id="form" action="">
+            <input id="input" autocomplete="off" placeholder="Nhập tin nhắn... (Dùng /ai để hỏi AI)" />
+            <button>Gửi</button>
+        </form>
+    </div>
+
+    <script src="/socket.io/socket.io.js"></script>
+    <script>
+        var socket = io();
+        console.log('Connecting to socket server...');
+
+        socket.on('connect', () => {
+            console.log('✅ Connected to server! Socket ID:', socket.id);
+        });
+
+        socket.on('connect_error', (err) => {
+            console.error('❌ Socket connection error:', err);
+            alert('Không thể kết nối đến server. Vui lòng kiểm tra xem server đã chạy chưa!');
+        });
+
+        var currentUser = null;
+        var chatTarget = null;
+
+        var form = document.getElementById('form');
+        var input = document.getElementById('input');
+        var messages = document.getElementById('messages');
+        var userList = document.getElementById('user-list');
+        var chatTitle = document.getElementById('chat-title');
+        var exitChatBtn = document.getElementById('exit-chat-btn');
+
+        // --- Auth Logic ---
+        function toggleAuth(mode) {
+            document.getElementById('login-box').style.display = mode === 'login' ? 'block' : 'none';
+            document.getElementById('signup-box').style.display = mode === 'signup' ? 'block' : 'none';
+        }
+
+        function doLogin() {
+            const username = document.getElementById('login-user').value;
+            const password = document.getElementById('login-pass').value;
+            if (!username || !password) {
+                alert('Vui lòng nhập đầy đủ thông tin!');
+                return;
+            }
+            socket.emit('login', { username, password });
+        }
+
+        function doSignup() {
+            const username = document.getElementById('sign-user').value;
+            const password = document.getElementById('sign-pass').value;
+            if (!username || !password) {
+                alert('Vui lòng nhập đầy đủ thông tin!');
+                return;
+            }
+            socket.emit('signup', { username, password });
+        }
+
+        socket.on('login success', function(data) {
+            currentUser = data;
+            const overlay = document.getElementById('auth-overlay');
+            overlay.style.opacity = '0';
+            setTimeout(() => { overlay.style.display = 'none'; }, 300);
+        });
+
+        socket.on('login error', function(err) { alert(err); });
+        socket.on('signup success', function(msg) { alert(msg); toggleAuth('login'); });
+        socket.on('signup error', function(err) { alert(err); });
+
+        // --- Search & Private Chat Logic ---
+        function searchUsers() {
+            const query = document.getElementById('search-input').value;
+            if (!query) {
+                userList.innerHTML = '';
+                return;
+            }
+            socket.emit('search-users', query);
+        }
+
+        socket.on('search results', function(results) {
+            userList.innerHTML = '';
+            results.forEach(username => {
+                var li = document.createElement('li');
+                li.textContent = username;
+                li.onclick = () => startPrivateChat(username);
+                userList.appendChild(li);
+            });
+        });
+
+        function startPrivateChat(username) {
+            if (username === currentUser.username) return;
+            chatTarget = username;
+            chatTitle.textContent = 'Chat riêng với ' + username;
+            exitChatBtn.style.display = 'block';
+            messages.innerHTML = '';
+            socket.emit('join-private-chat', username);
+        }
+
+        function exitPrivateChat() {
+            chatTarget = null;
+            chatTitle.textContent = 'Chat Tổng';
+            exitChatBtn.style.display = 'none';
+            messages.innerHTML = '';
+        }
+
+        // --- Chat Logic ---
+        form.addEventListener('submit', function(e) {
+            e.preventDefault();
+            if (input.value) {
+                if (chatTarget) {
+                    socket.emit('private message', { targetUsername: chatTarget, text: input.value });
+                } else {
+                    socket.emit('chat message', input.value);
+                }
+                input.value = '';
+            }
+        });
+
+        socket.on('chat message', function(data) {
+            if (data.isPrivate) {
+                if (!chatTarget || (data.user !== chatTarget && data.target !== chatTarget)) {
+                    return;
+                }
+            }
+
+            var item = document.createElement('li');
+            item.className = 'msg-bubble';
+            if (data.user === 'AI Bot') item.classList.add('role-ai');
+            else if (data.user === currentUser?.username) item.classList.add('role-me');
+            else if (data.role === 'admin') item.classList.add('role-admin');
+            else item.classList.add('role-user');
+
+            item.innerHTML = `
+                <span class="user-name">${data.user} ${data.role === 'admin' ? '(Admin)' : ''}</span>
+                <span class="text">${data.text}</span>
+                <span class="timestamp">${data.timestamp}</span>
+            `;
+
+            messages.appendChild(item);
+            messages.scrollTop = messages.scrollHeight;
+        });
+
+        socket.on('error', function(err) { alert(err); });
+    </script>
+</body>
+</html>

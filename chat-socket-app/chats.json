@@ -1,0 +1,14 @@
+{
+  "contacts": {
+    "hung": [
+      "admin"
+    ],
+    "admin": [
+      "hung",
+      "Tuonghung"
+    ],
+    "Tuonghung": [
+      "admin"
+    ]
+  }
+}

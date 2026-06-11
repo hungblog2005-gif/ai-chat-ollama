@@ -1,0 +1,4 @@
+node_modules/
+*.log
+.DS_Store
+# Không push dữ liệu người dùng và lịch sử chat lên GitHub để bảo mật
