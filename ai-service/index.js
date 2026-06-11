@@ -51,7 +51,7 @@ async function getOllamaResponse(text) {
 
         // Use AbortController to implement a timeout for the fetch request
         const controller = new AbortController();
-        const timeoutId = setTimeout(() => controller.abort(), 30000); // 30 second timeout
+        const timeoutId = setTimeout(() => controller.abort(), 60000); // Tăng lên 60 giây để tránh cold start timeout
 
         const response = await fetch('http://localhost:11434/api/chat', {
             method: 'POST',
@@ -61,14 +61,15 @@ async function getOllamaResponse(text) {
                 messages: [
                     {
                         role: 'system',
-                        content: 'Bạn là Admin hệ thống chat. Hãy trả lời CỰC KỲ NGẮN GỌN, súc tích, trực tiếp vào vấn đề. LUÔN LUÔN dùng tiếng Việt.'
+                        content: 'Admin chat. Ngắn gọn, súc tích, tiếng Việt.'
                     },
                     { role: 'user', content: text }
                 ],
                 stream: false,
                 options: {
+                    num_ctx: 1024,
                     num_predict: 150,
-                    temperature: 0.7
+                    temperature: 0.3
                 }
             }),
             signal: controller.signal
